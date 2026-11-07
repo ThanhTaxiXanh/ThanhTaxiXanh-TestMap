@@ -13,7 +13,9 @@
 | HUD nổi điện thoại | ✅ sau khi cấp quyền | ✅ |
 | Android Auto | Chưa triển khai | Chưa triển khai |
 
-**MỚI v0.4:** TTX tự tải các điểm biển có gắn thẻ traffic_sign và speed_camera của OpenStreetMap ở khu vực gần GPS (nếu có Internet), lưu riêng trong SQLite để dùng lại khi không có mạng. Không cần mở Waze, kể cả khi com.waze đã cài. Tải tự động phụ thuộc dữ liệu OSM và khả năng truy cập Overpass; nếu khu vực không có điểm đã được ghi nhận, không có biển để hiển thị. Xem docs/NO_WAZE_OPEN_AUTOSIGNS_V04.md.\n\n**Quan trọng:** APK không đóng gói sẵn dữ liệu biển báo toàn quốc. Nếu chưa nhập tệp tốc độ, TTX vẫn đọc GPS nhưng giới hạn tốc độ sẽ là “—”. Chỉ dùng dữ liệu có nguồn gốc và quyền sử dụng rõ ràng; biển báo ngoài đường là căn cứ ưu tiên. Không sử dụng để thay thế quan sát giao thông thực tế.
+**MỚI v0.4:** TTX tự tải các điểm biển có gắn thẻ traffic_sign và speed_camera của OpenStreetMap ở khu vực gần GPS (nếu có Internet), lưu riêng trong SQLite để dùng lại khi không có mạng. Không cần mở Waze, kể cả khi com.waze đã cài. Tải tự động phụ thuộc dữ liệu OSM và khả năng truy cập Overpass; nếu khu vực không có điểm đã được ghi nhận, không có biển để hiển thị. Xem docs/NO_WAZE_OPEN_AUTOSIGNS_V04.md.
+
+**Quan trọng:** APK không đóng gói sẵn dữ liệu biển báo toàn quốc. Nếu chưa nhập tệp tốc độ, TTX vẫn đọc GPS nhưng giới hạn tốc độ sẽ là “—”. Chỉ dùng dữ liệu có nguồn gốc và quyền sử dụng rõ ràng; biển báo ngoài đường là căn cứ ưu tiên. Không sử dụng để thay thế quan sát giao thông thực tế.
 
 ## Nhận diện Waze Mod 10 qua com.waze
 
