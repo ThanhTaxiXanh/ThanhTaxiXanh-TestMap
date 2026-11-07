@@ -26,6 +26,54 @@ class WazeModClient(
     private var bound = false
     private var remote: IBinder? = null
     private var listenerRegistered = false
+    private val pollIntervalMs = 1_000L
+    private var polling = false
+    private var consecutiveReadFailures = 0
+
+    /**
+     * Callback notifications are change-driven, not guaranteed heartbeats.
+     * Explicit GET_SNAPSHOT refreshes the timestamp even while the car is stopped.
+     * No Waze private storage, network endpoints or permission bypass is used.
+     */
+    private val snapshotPoll = object : Runnable {
+        override fun run() {
+            if (!polling || remote == null) return
+            try {
+                val snapshot = getSnapshot()
+                if (snapshot != null) {
+                    consecutiveReadFailures = 0
+                    onData(snapshot)
+                } else {
+                    consecutiveReadFailures++
+                    if (consecutiveReadFailures == 1 || consecutiveReadFailures == 5) {
+                        onStatus("Đã kết nối API nhưng Waze Mod chưa trả snapshot")
+                    }
+                }
+            } catch (ex: SecurityException) {
+                stopPolling()
+                onStatus("Quyền đọc Waze Mod bị từ chối/thu hồi. Hãy xin cấp lại.")
+                return
+            } catch (ex: Exception) {
+                consecutiveReadFailures++
+                if (consecutiveReadFailures == 1 || consecutiveReadFailures == 5) {
+                    onStatus("Không đọc được dữ liệu Waze: ${ex.javaClass.simpleName}")
+                }
+            }
+            if (polling && remote != null) main.postDelayed(this, pollIntervalMs)
+        }
+    }
+
+    private fun startPolling() {
+        stopPolling()
+        consecutiveReadFailures = 0
+        polling = true
+        main.post(snapshotPoll)
+    }
+
+    private fun stopPolling() {
+        polling = false
+        main.removeCallbacks(snapshotPoll)
+    }
 
     companion object {
         const val WAZE_PACKAGE = "com.waze"
@@ -77,16 +125,33 @@ class WazeModClient(
             remote = service
             try {
                 val v = readVersion()
-                onStatus("Đã kết nối WazeMod Data API v$v")
-                getSnapshot()?.let(onData)
-                register()
+                if (v != 1) {
+                    stopPolling()
+                    onStatus("WazeMod API v$v chưa được thử nghiệm (Bridge hỗ trợ v1)")
+                    return
+                }
+                // A listener provides low latency; periodic snapshots remain the fallback.
+                val subscribed = try {
+                    register()
+                    true
+                } catch (ex: SecurityException) {
+                    throw ex
+                } catch (_: Exception) {
+                    false
+                }
+                onStatus(if (subscribed) "Đã cấp quyền · kết nối WazeMod API v$v" else
+                    "Đã kết nối WazeMod API v$v · dùng chế độ đọc định kỳ")
+                startPolling()
             } catch (ex: SecurityException) {
+                stopPolling()
                 onStatus("Chưa cấp quyền. Bấm 'Xin quyền Waze Mod 10'.")
             } catch (ex: Exception) {
+                stopPolling()
                 onStatus("Lỗi Binder: ${ex.javaClass.simpleName}: ${ex.message.orEmpty()}")
             }
         }
         override fun onServiceDisconnected(name: ComponentName?) {
+            stopPolling()
             remote = null
             listenerRegistered = false
             onStatus("Mất kết nối Waze Mod")
@@ -106,6 +171,7 @@ class WazeModClient(
     }
 
     fun disconnect() {
+        stopPolling()
         try {
             if (listenerRegistered) changeListener(TX_UNREGISTER)
         } catch (_: Exception) { /* service may already be gone */ }

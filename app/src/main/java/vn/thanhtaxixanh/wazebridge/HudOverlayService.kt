@@ -38,7 +38,8 @@ class HudOverlayService : Service() {
         override fun run() {
             if (latest?.stale == true) {
                 speedSign.speedLimit = 0
-                warning.text = "⚠ Dữ liệu cũ — chưa xác minh được tốc độ"
+                text.text = "GPS: —"
+                warning.text = "⚠ Dữ liệu Waze cũ. Mở Waze Mod và kiểm tra GPS."
             }
             handler.postDelayed(this, 1000)
         }
@@ -105,10 +106,15 @@ class HudOverlayService : Service() {
     private fun update(snapshot: WazeSnapshot) {
         if(overlay==null) return
         speedSign.speedLimit=if(snapshot.stale) 0 else snapshot.limitKmh
-        text.text="GPS ${snapshot.speedKmh} km/h"
-        warning.text = snapshot.alerts.minByOrNull { it.distanceM }?.let {
-            "${it.label} · ${it.distanceM} m"
-        } ?: "Chưa có biển báo phía trước"
+        text.text=if(snapshot.stale) "GPS: —" else "GPS ${snapshot.speedKmh} km/h"
+        warning.text = when {
+            snapshot.stale -> "⚠ Dữ liệu Waze cũ — kiểm tra nguồn"
+            snapshot.alerts.isNotEmpty() -> snapshot.alerts.minByOrNull { it.distanceM }!!.let {
+                "${it.label} · ${it.distanceM} m"
+            }
+            snapshot.limitKmh == 0 -> "Chưa có giới hạn tốc độ / cảnh báo"
+            else -> "Chưa có biển báo phía trước"
+        }
     }
     override fun onDestroy() {
         handler.removeCallbacks(heartbeat)

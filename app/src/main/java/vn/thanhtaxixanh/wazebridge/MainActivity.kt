@@ -21,6 +21,7 @@ class MainActivity : Activity() {
     private lateinit var currentSpeed: TextView
     private lateinit var street: TextView
     private lateinit var alerts: TextView
+    private lateinit var sourceHealth: TextView
     private lateinit var sign: SpeedLimitSignView
     private var last: WazeSnapshot? = null
     private val CONSENT = 101
@@ -62,7 +63,9 @@ class MainActivity : Activity() {
         layout.addView(speedRow)
         street = txt("Đường: —",16f); layout.addView(street)
         alerts = txt("Chưa có cảnh báo",17f); layout.addView(alerts)
-        layout.addView(txt("Lưu ý: giới hạn 0 = không biết; đây là dữ liệu HUD hiện tại, không phải kho biển báo GPS cả nước.",13f))
+        sourceHealth = txt("Nguồn dữ liệu: đang chờ snapshot từ Waze Mod...", 14f)
+        layout.addView(sourceHealth)
+        layout.addView(txt("Lưu ý: GPS 0 km/h khi đứng yên là bình thường; giới hạn tốc độ 0 = chưa biết. Dữ liệu được lấy từ trạng thái HUD hiện tại, không phải kho biển báo GPS cả nước.",13f))
         val scroll=ScrollView(this);scroll.addView(layout)
         setContentView(scroll)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -77,6 +80,15 @@ class MainActivity : Activity() {
         street.text = "Đường: ${s.street.ifBlank { "Chưa nhận" }}" + (if (s.navigating) " · Đang dẫn đường" else "")
         alerts.text = if (s.alerts.isEmpty()) "Chưa có cảnh báo phía trước" else
             s.alerts.joinToString("\n") { "• ${it.label} · ${it.distanceM} m" + if (it.value>0) " · ${it.value}" else "" }
+        sourceHealth.text = when {
+            s.measuredAtElapsedMs <= 0L -> "Nguồn: snapshot không có timestamp. Cần kiểm tra Binder."
+            s.stale -> "Nguồn: snapshot cũ ${s.ageMs / 1000}s. Hãy mở Waze Mod và kiểm tra GPS."
+            s.limitKmh == 0 && s.street.isBlank() && s.alerts.isEmpty() ->
+                "Đã nhận snapshot mới (${s.ageMs}ms); Waze chưa cung cấp giới hạn, tên đường hoặc cảnh báo."
+            s.limitKmh == 0 ->
+                "Đã đồng bộ (${s.ageMs}ms); giới hạn tốc độ trên đoạn đường này chưa rõ."
+            else -> "Đã đồng bộ dữ liệu Waze (${s.ageMs}ms, ${s.alerts.size} cảnh báo)."
+        }
     }
 
     private fun startHud() {
