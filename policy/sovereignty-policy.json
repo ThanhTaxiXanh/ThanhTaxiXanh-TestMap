@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "region": "VN",
+  "presentation_convention": "Product labeling policy; territorial claims are disputed",
+  "required_labels": {
+    "hoang_sa": "Hoàng Sa (Việt Nam)",
+    "truong_sa": "Trường Sa (Việt Nam)",
+    "east_sea": "Biển Đông"
+  },
+  "reject_competing_claim_labels": true,
+  "block_unverified_map_surfaces": true,
+  "block_unverified_tile_sources": true,
+  "block_unverified_search_results": true,
+  "block_unverified_map_images": true,
+  "release_map_assets_enabled": false
+}

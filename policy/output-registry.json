@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "app_mode": "HUD_ONLY_NO_MAP",
+  "rendered_maps": [],
+  "tile_sources": [],
+  "search_sources": [],
+  "published_map_images": [],
+  "automatic_snapshot_testing": "REQUIRED_BEFORE_ENABLING_MAP_OUTPUTS",
+  "human_visual_review": "REQUIRED_BEFORE_ENABLING_MAP_OUTPUTS"
+}
