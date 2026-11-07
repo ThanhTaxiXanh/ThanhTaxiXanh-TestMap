@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -63,8 +62,6 @@ class IndependentEngine(
                 }
             }
         }
-        @Deprecated("Android location status not used")
-        override fun onStatus(provider:String?,status:Int,extras:Bundle?) {}
         override fun onProviderEnabled(provider:String) {}
         override fun onProviderDisabled(provider:String) {
             onStatus("GPS đã tắt — bật Vị trí để nhận tốc độ")
