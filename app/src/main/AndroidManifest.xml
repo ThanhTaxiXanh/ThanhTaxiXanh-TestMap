@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <queries><package android:name="com.waze"/></queries>
     <application android:allowBackup="false"
-        android:label="TTX Speed & Signs"
+        android:label="TTX Speed &amp; Signs"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true">
