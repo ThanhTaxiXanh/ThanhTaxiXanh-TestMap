@@ -28,7 +28,7 @@ data class ImportedDataset(val roads:Int, val signs:Int, val source:String, val 
  * App-private SQLite database. Imports the user's OSM JSON using streaming JsonReader.
  * Does not download, decrypt, or copy Waze/WazeMod proprietary geographic data.
  */
-class OfflineRoadDatabase(context:Context) : SQLiteOpenHelper(context, "ttx_roads_v1.db", null, 1) {
+class OfflineRoadDatabase(context:Context) : SQLiteOpenHelper(context, "ttx_roads_v1.db", null, 2) {
     override fun onCreate(db:SQLiteDatabase) {
         db.execSQL("""CREATE TABLE roads (
             way_id INTEGER PRIMARY KEY, road_name TEXT NOT NULL,
@@ -40,9 +40,40 @@ class OfflineRoadDatabase(context:Context) : SQLiteOpenHelper(context, "ttx_road
             id TEXT PRIMARY KEY, lat REAL NOT NULL, lon REAL NOT NULL,
             type INTEGER NOT NULL, value INTEGER NOT NULL, heading REAL, source TEXT NOT NULL)""")
         db.execSQL("CREATE INDEX signs_lat_lon ON signs(lat,lon)")
+        createOsmTable(db)
         db.execSQL("CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     }
-    override fun onUpgrade(db:SQLiteDatabase,oldVersion:Int,newVersion:Int) {}
+    override fun onUpgrade(db:SQLiteDatabase,oldVersion:Int,newVersion:Int) {
+        if (oldVersion < 2) createOsmTable(db) // preserve imported user road/sign data
+    }
+
+    private fun createOsmTable(db:SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS osm_signs (
+            id TEXT PRIMARY KEY, lat REAL NOT NULL, lon REAL NOT NULL,
+            type INTEGER NOT NULL, value INTEGER NOT NULL, heading REAL,
+            source TEXT NOT NULL, last_seen_ms INTEGER NOT NULL)""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS osm_signs_lat_lon ON osm_signs(lat,lon)")
+    }
+
+    /** Cache public OSM points without deleting the user's own imported signs. */
+    fun mergeOsmSigns(records:List<OsmSignRecord>) {
+        val db = writableDatabase
+        val now = System.currentTimeMillis()
+        db.beginTransaction()
+        try {
+            for (s in records) {
+                val values = ContentValues().apply {
+                    put("id", s.id);put("lat",s.lat);put("lon",s.lon)
+                    put("type",s.type);put("value",s.value)
+                    if(s.heading != null) put("heading",s.heading) else putNull("heading")
+                    put("source",s.source);put("last_seen_ms",now)
+                }
+                db.insertWithOnConflict("osm_signs",null,values,SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.delete("osm_signs","last_seen_ms < ?",arrayOf((now - 30L*86_400_000L).toString()))
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+    }
 
     private fun JsonReader.textOrNull():String? = when (peek()) {
         JsonToken.NULL -> { nextNull(); null }
@@ -201,7 +232,10 @@ class OfflineRoadDatabase(context:Context) : SQLiteOpenHelper(context, "ttx_road
             c.moveToFirst();val roads = c.getLong(0)
             db.rawQuery("SELECT COUNT(*) FROM signs",null).use { s ->
                 s.moveToFirst()
-                return roads to s.getLong(0)
+                db.rawQuery("SELECT COUNT(*) FROM osm_signs",null).use { osm ->
+                    osm.moveToFirst()
+                    return roads to (s.getLong(0) + osm.getLong(0))
+                }
             }
         }
     }
@@ -275,23 +309,29 @@ class OfflineRoadDatabase(context:Context) : SQLiteOpenHelper(context, "ttx_road
         val dLat = range / 111320.0
         val dLon = range / (111320.0 * cos(Math.toRadians(lat)).coerceAtLeast(0.05))
         val result = ArrayList<OfflineAlert>()
-        db.rawQuery("SELECT lat,lon,type,value,heading,source FROM signs WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? LIMIT 250",
-            arrayOf((lat-dLat).toString(),(lat+dLat).toString(),
-                (lon-dLon).toString(),(lon+dLon).toString())
-        ).use { cursor ->
-            while(cursor.moveToNext()) {
-                val signLat=cursor.getDouble(0);val signLon=cursor.getDouble(1)
-                val distance=GeoMath.distanceMeters(lat,lon,signLat,signLon)
-                if(distance > range || distance < 10.0) continue
-                val heading = if(cursor.isNull(4)) null else cursor.getDouble(4)
-                // To avoid wrong-way alerts, only report ahead when GPS bearing is reliable.
-                if (!location.hasBearing() || location.speed < 2.0f) continue
-                if(GeoMath.angleDelta(location.bearing.toDouble(),
-                        GeoMath.bearing(lat,lon,signLat,signLon)) > 55.0) continue
-                if(heading != null && GeoMath.angleDelta(location.bearing.toDouble(),heading)>65.0) continue
-                val code = cursor.getInt(2)
-                result.add(OfflineAlert(code,distance.toInt(),cursor.getInt(3),
-                    AlertTypes.label(code),cursor.getString(5).orEmpty()))
+        // User-imported signs and independently fetched OSM signs coexist.
+        for(table in listOf("signs", "osm_signs")) {
+            db.rawQuery("SELECT lat,lon,type,value,heading,source FROM $table WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? LIMIT 250",
+                arrayOf((lat-dLat).toString(),(lat+dLat).toString(),
+                    (lon-dLon).toString(),(lon+dLon).toString())
+            ).use { cursor ->
+                while(cursor.moveToNext()) {
+                    val signLat=cursor.getDouble(0);val signLon=cursor.getDouble(1)
+                    val distance=GeoMath.distanceMeters(lat,lon,signLat,signLon)
+                    if(distance > range || distance < 10.0) continue
+                    val heading = if(cursor.isNull(4)) null else cursor.getDouble(4)
+                    if (!location.hasBearing() || location.speed < 2.0f) continue
+                    val bearingToSign = GeoMath.bearing(lat,lon,signLat,signLon)
+                    if(GeoMath.angleDelta(location.bearing.toDouble(),bearingToSign)>55.0) continue
+                    if(heading != null && GeoMath.angleDelta(location.bearing.toDouble(),heading)>65.0) continue
+                    // Prefer signs within the probable travel corridor; not adjacent parallel roads.
+                    val rad = Math.toRadians(GeoMath.angleDelta(location.bearing.toDouble(),bearingToSign))
+                    val lateralM = distance * kotlin.math.sin(rad)
+                    if(lateralM > max(35.0, min(60.0,location.accuracy.toDouble()*1.5))) continue
+                    val code = cursor.getInt(2)
+                    result.add(OfflineAlert(code,distance.toInt(),cursor.getInt(3),
+                        AlertTypes.label(code),cursor.getString(5).orEmpty()))
+                }
             }
         }
         return result.sortedBy { it.distanceM }.take(3)
