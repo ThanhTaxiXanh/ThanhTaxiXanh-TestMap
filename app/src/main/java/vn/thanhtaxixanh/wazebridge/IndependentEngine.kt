@@ -36,7 +36,7 @@ class IndependentEngine(
     @Volatile private var newestGpsElapsedMs = 0L
     private var mostRecentFix: Location? = null
 
-    private val listener = object:LocationListener {
+    private val listener: LocationListener = object : LocationListener {
         override fun onLocationChanged(location:Location) {
             if (!started) return
             val fix = Location(location)
