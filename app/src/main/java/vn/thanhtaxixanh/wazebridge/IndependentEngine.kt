@@ -33,6 +33,7 @@ class IndependentEngine(
     private val main = Handler(Looper.getMainLooper())
     private var started = false
     @Volatile private var newestGpsElapsedMs = 0L
+    private var mostRecentFix: Location? = null
 
     private val listener = object:LocationListener {
         override fun onLocationChanged(location:Location) {
@@ -45,6 +46,10 @@ class IndependentEngine(
             }
             val time = SystemClock.elapsedRealtime()
             newestGpsElapsedMs = time
+            mostRecentFix = fix
+            // Automatically populate a licensed OSM sign cache, even if com.waze is absent
+            // or installed but never opened. Network work is off the GPS worker thread.
+            osmRefresh.consider(fix)
             worker.execute {
                 try {
                     val road = db.nearest(fix)
@@ -65,6 +70,15 @@ class IndependentEngine(
         override fun onProviderEnabled(provider:String) {}
         override fun onProviderDisabled(provider:String) {
             onStatus("GPS đã tắt — bật Vị trí để nhận tốc độ")
+        }
+    }
+
+    private val osmRefresh = OsmSignRefresh(app, db, onStatus) {
+        // A cache refresh must not make an old fix appear current.
+        val fix = mostRecentFix
+        if (started && fix != null &&
+            SystemClock.elapsedRealtime() - newestGpsElapsedMs <= 8_000) {
+            listener.onLocationChanged(Location(fix))
         }
     }
 
@@ -112,5 +126,6 @@ class IndependentEngine(
         stop()
         // Jobs already queued finish, but no more callbacks are emitted once stopped.
         worker.shutdown()
+        osmRefresh.close()
     }
 }
