@@ -10,8 +10,8 @@ android {
         applicationId = "vn.thanhtaxixanh.wazebridge"
         minSdk = 29
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.3.0-independent"
+        versionCode = 3
+        versionName = "0.4.0-auto-osm-without-waze"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -78,7 +78,10 @@ object AlertTypes {
         72 to "CAR_NO_LEFT_TURN",
         73 to "CAR_NO_RIGHT_TURN",
         74 to "CAR_NO_U_TURN",
-        75 to "Đèn giao thông"
+        75 to "Đèn giao thông",
+        76 to "Biển giới hạn tốc độ",
+        77 to "Biển DỪNG",
+        78 to "Biển nhường đường"
     )
     fun label(code: Int): String = names[code] ?: "Cảnh báo #${code}"
 }

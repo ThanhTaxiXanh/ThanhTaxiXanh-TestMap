@@ -46,7 +46,8 @@ class DataSourceCoordinator(
     private var lastReconnect = 0L
     private val offline = IndependentEngine(app,
         { current -> offlineSnapshot=current;emit() },
-        { message -> offlineInfo=message;emit() })
+        { message -> offlineInfo=message;emit() },
+        { counts -> roads=counts.first; signs=counts.second;emit() })
     private val waze = WazeModClient(app,
         { status ->
             wazeInfo = status
@@ -142,6 +143,7 @@ class DataSourceCoordinator(
             wazeLimit!=null -> "Waze Mod 10 (com.waze)"
             offlineLimit!=null -> "GPS + dữ liệu ngoại tuyến"
             wazeCurrent!=null -> "Waze Mod (chưa có giới hạn tốc độ)"
+            offlineCurrent?.alerts?.isNotEmpty() == true -> "GPS + biển báo độc lập (OSM hoặc nhập thủ công)"
             offlineCurrent!=null -> "GPS riêng (chưa có giới hạn tốc độ)"
             else -> "Chưa có vị trí GPS / dữ liệu live"
         }
