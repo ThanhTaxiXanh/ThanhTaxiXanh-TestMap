@@ -24,7 +24,8 @@ data class OfflineLiveSnapshot(
 }
 class IndependentEngine(
     context:Context, private val onLocation:(OfflineLiveSnapshot)->Unit,
-    private val onStatus:(String)->Unit
+    private val onStatus:(String)->Unit,
+    private val onCountsChanged:(Pair<Long,Long>)->Unit = {}
 ) {
     private val app = context.applicationContext
     private val manager = app.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -74,6 +75,7 @@ class IndependentEngine(
     }
 
     private val osmRefresh = OsmSignRefresh(app, db, onStatus) {
+        counts(onCountsChanged)
         // A cache refresh must not make an old fix appear current.
         val fix = mostRecentFix
         if (started && fix != null &&
