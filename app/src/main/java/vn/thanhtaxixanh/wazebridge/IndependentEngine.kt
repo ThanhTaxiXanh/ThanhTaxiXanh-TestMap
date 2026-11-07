@@ -81,7 +81,7 @@ class IndependentEngine(
         for(provider in listOf(LocationManager.GPS_PROVIDER,LocationManager.NETWORK_PROVIDER)) {
             try {
                 if(manager.isProviderEnabled(provider)) {
-                    manager.requestLocationUpdates(provider,900L,1f,listener,Looper.getMainLooper())
+                    manager.requestLocationUpdates(provider,900L,0f,listener,Looper.getMainLooper())
                     count++
                 }
             } catch(_:SecurityException) {
