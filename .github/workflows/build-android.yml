@@ -37,10 +37,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Build prototype debug APK
+      - name: Test offline GPS matching algorithms
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
+      - name: Build standalone debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: TTX-WazeMod10-Bridge-debug-apk
+          name: TTX-Independent-SpeedSigns-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error

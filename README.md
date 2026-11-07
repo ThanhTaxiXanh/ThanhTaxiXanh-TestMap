@@ -1,58 +1,52 @@
-# TTX Waze Mod 10 Bridge — nguồn Android thử nghiệm
+# TTX Speed & Signs — GPS độc lập, Waze Mod 10 tùy chọn
 
-> **Prototype 0.1.0:** hợp đồng IPC đã phân tích tĩnh từ APK Waze Mod 10 V15.3. Cần xác nhận build GitHub Actions và chạy trên điện thoại; KHÔNG phải ứng dụng Waze chính thức.
+**Phiên bản thử nghiệm:** 0.3.0-independent. **Không bắt buộc cài Waze**. Có thể sử dụng trên Android 10+ với GPS riêng và bộ dữ liệu tốc độ/biển báo ngoại tuyến do người dùng nhập. Dữ liệu Waze Mod 10 là nguồn bổ sung có cấp quyền, không dùng mã/dữ liệu proprietary của Waze.
 
-**Mục đích:** Đưa tốc độ GPS, giới hạn tốc độ, tên đường và cảnh báo phía trước từ **Waze Mod 10** sang HUD của ứng dụng Android riêng, chỉ sau khi người dùng cho phép.
+## Trạng thái chức năng
 
-**Repo:** https://github.com/ThanhTaxiXanh/ThanhTaxiXanh-TestMap
+| Nguồn | Không cài Waze | Khi Waze bị đóng |
+|---|---|---|
+| GPS hiện tại | ✅ với quyền vị trí | ✅ |
+| Giới hạn tốc độ OSM | ✅ **sau khi nhập** tệp tốc độ OSM hợp lệ | ✅ |
+| Biển báo dạng điểm | ✅ **sau khi nhập** tệp biển báo hợp lệ có tọa độ và hướng | ✅ |
+| Dữ liệu giới hạn/cảnh báo Waze | Không có | Chuyển dự phòng ngoại tuyến |
+| HUD nổi điện thoại | ✅ sau khi cấp quyền | ✅ |
+| Android Auto | Chưa triển khai | Chưa triển khai |
 
-## Thành phần
+**Quan trọng:** APK không đóng gói sẵn dữ liệu biển báo toàn quốc. Nếu chưa nhập tệp tốc độ, TTX vẫn đọc GPS nhưng giới hạn tốc độ sẽ là “—”. Chỉ dùng dữ liệu có nguồn gốc và quyền sử dụng rõ ràng; biển báo ngoài đường là căn cứ ưu tiên. Không sử dụng để thay thế quan sát giao thông thực tế.
 
-- `WazeModClient.kt`: kết nối Binder với `com.waze.gw.WazeModDataService`, xin phép qua `ApiConsentActivity`, đọc snapshot và nhận callback.
-- `WazeModels.kt`: mô hình speed, limit, overspeed, street, alerts, timestamp; phát hiện dữ liệu cũ.
-- `AlertTypes.kt`: diễn giải 76 mã cảnh báo.
-- `MainActivity.kt`: màn hình xin cấp quyền/đọc dữ liệu/test.
-- `HudOverlayService.kt`: HUD nổi chỉ trên **điện thoại**, không phải Android Auto.
-- `SpeedLimitSignView.kt`: biểu tượng giới hạn tốc độ vẽ bằng Android Canvas, không dùng tài sản Waze.
-- `docs/PHAN_TICH_MOD10_IPC_VA_DU_LIEU.md`: hợp đồng kỹ thuật, ràng buộc và checklist.
-- `docs/alert_types_full.csv`: bảng mã 0–75 lấy từ bytecode.
+## Nhận diện Waze Mod 10 qua com.waze
 
-## Build APK chỉ bằng điện thoại và GitHub Actions
+- TTX dùng Android PackageManager để phát hiện **package `com.waze`**, giống phần chọn nguồn trong ảnh bạn cung cấp.
+- Phát hiện `com.waze` **không đồng nghĩa** Waze Mod 10. TTX xác minh bằng Binder API v1 `com.waze.gw.WazeModDataService`.
+- Nếu bạn cho phép trong màn hình consent của Waze Mod 10, TTX có thể ưu tiên giới hạn/cảnh báo Waze khi Waze đang thực sự cung cấp dữ liệu.
+- Nếu package không có, Binder không được cấp quyền hoặc dữ liệu Waze cũ, **TTX vẫn tiếp tục GPS và bộ dữ liệu ngoại tuyến**; không cố vượt quyền và không cố giữ Waze chạy bằng hack.
+- Có thể chọn **Tự động**, **Chỉ ngoại tuyến** hoặc **Ưu tiên Waze Mod 10**; mặc định là Tự động.
 
-1. Mở tab **Actions** của repo này: https://github.com/ThanhTaxiXanh/ThanhTaxiXanh-TestMap/actions
-2. Chọn workflow **Build TTX WazeMod10 Bridge APK**. Bản build cũng chạy tự động khi push vào `main`.
-3. Chỉ khi job **assemble** có trạng thái **success** mới mở **Artifacts** và tải `TTX-WazeMod10-Bridge-debug-apk`.
-4. Giải nén ZIP artifact và cài tệp `app-debug.apk` trên Android. Nếu CI chưa đạt, xem log trước, không coi là APK hoàn chỉnh.
+## Nhập dữ liệu OSM Việt Nam bằng điện thoại
 
-Cấu hình: AGP 8.9.2, Kotlin 2.0.21, Gradle 8.11.1, Java 17, compileSdk 35, minSdk 29, targetSdk 35.
+1. Cài APK từ GitHub Actions build SUCCESS.
+2. Cấp quyền vị trí chính xác cho TTX (bật Location/GPS trên điện thoại).
+3. Nhấn **Nhập dữ liệu tốc độ / biển báo từ JSON**, chọn `vietnam_speed_limits_1.json` trên điện thoại. Tệp từng được bạn cung cấp có schema `features` với `way_id`, `maxspeed_kmh`, `forward_kmh`, `backward_kmh`, bbox và `geometry` dạng chuỗi các cặp **[vĩ độ, kinh độ]**. Importer đọc theo luồng và lưu SQLite, không cần root.
+4. Nếu có bộ dữ liệu biển báo tự thu thập/được phép tái sử dụng, nhập thêm tệp JSON với khóa `signs`; xem `docs/OFFLINE_FORMAT_AND_TEST.md`.
+5. Xem thống kê số đoạn đường/biển đã nhập ở phần **Trạng thái nguồn dữ liệu**.
 
-## Trình tự nghiệm thu trên Android
+Nếu tệp trước đây không còn trên điện thoại, bạn cần tải/copy tệp đó sang điện thoại trước khi nhập; chương trình không tự trích xuất dữ liệu Waze. OSM tuân theo ODbL và cần ghi công nguồn: © OpenStreetMap contributors.
 
-1. Cài và mở đúng `Waze_Mod_10_release_20261012_233501.apk` (package `com.waze`, kiến trúc ARM64). Không được cài đồng thời Mod 8 và Mod 10 nếu cùng package.
-2. Cài Bridge APK được build thành công.
-3. Nhấn **1 · Xin quyền Waze Mod 10**; cấp quyền trong màn hình Waze Mod nếu xuất hiện.
-4. Nhấn **2 · Kết nối lại / đọc dữ liệu**. Ghi lại trạng thái, tốc độ, giới hạn và cảnh báo.
-5. Nhấn **3 · Bật HUD nổi**; cấp quyền `Hiển thị trên ứng dụng khác` nếu điện thoại yêu cầu.
-6. Mở ứng dụng bản đồ khác trên **điện thoại**, kiểm tra HUD và sự cập nhật trong ít nhất 5 phút. Dừng HUD bằng nút trong ứng dụng/thông báo.
-7. Kiểm tra cả khi không dẫn đường và khi Waze đang dẫn đường; đối chiếu giới hạn tốc độ thực tế, độ trễ, mất kết nối và thu hồi quyền.
+**Phạm vi chính xác:** mẫu địa lý 35–60m không thay thế map matching đầy đủ; nếu đường song song/thiếu hướng hoặc độ chính xác GPS thấp, TTX báo chưa xác định. Không tự suy diễn tốc độ mặc định theo loại đường. Cảnh báo chỉ hiển thị ở phía trước khi có hướng chuyển động GPS đủ tin cậy và bản ghi điểm biển báo hợp lệ.
 
-**Diễn giải dữ liệu:** `speed_limit = 0` nghĩa là *chưa có giới hạn được xác nhận*, không phải tốc độ giới hạn 0. `timestamp` dùng `SystemClock.elapsedRealtime()`. Sau 5 giây dữ liệu chưa cập nhật sẽ được đánh dấu cũ.
+## Build trên GitHub Actions
 
-## Tích hợp vào ứng dụng Android khác
+Workflow `.github/workflows/build-android.yml` phải chạy job `Mandatory sovereignty gate` và các bài regression trước. Job `Build APK only after gate PASS` mới được biên dịch. Bản mới bổ sung unit tests hình học và chỉ xuất `TTX-Independent-SpeedSigns-debug-apk` khi thành công.
 
-Chuyển 3 lớp `WazeModClient.kt`, `WazeModels.kt`, `AlertTypes.kt` vào app và sửa package. Khai báo `<queries><package android:name="com.waze"/></queries>`. Activity phải khởi chạy `consentIntent()` **for result**, sau `RESULT_OK` thì gọi `client.reconnect()`. Khi đóng app, `disconnect()`.
+**Ruleset main:** `TTX-Main-Sovereignty-Protection` yêu cầu PR và 2 status checks PASS. Quy ước sản phẩm Hoàng Sa (Việt Nam), Trường Sa (Việt Nam), Biển Đông nằm tại `policy/`; prototype chưa vẽ map/tile/search/ảnh bản đồ và gate sẽ chặn nguồn bản đồ chưa kiểm chứng.
 
-Binder action `com.wazemod.api.action.BIND` (interface `com.wazemod.api.IWazeModData`) hỗ trợ transaction 2=version, 3=snapshot, 4=register, 5=unregister. Listener nhận callback code 2=update hoặc 3=revoked.
+## Modules
 
-API chỉ phát trạng thái HUD hiện tại và tối đa 3 cảnh báo phía trước; **không cấp lat/lon biển báo, geometry hay toàn bộ database Việt Nam**.
-
-## Những điều chưa có
-
-- Chưa xác minh thời gian chạy thật, cấp quyền thực tế hoặc độ trễ trên thiết bị.
-- Chưa có Car App Service cho Android Auto. Android overlay trên điện thoại không thể vẽ trực tiếp lên Android Auto.
-- Không đọc dữ liệu riêng tư trong app Waze, không giả mạo chữ ký hay vượt các kiểm tra UID/chứng chỉ.
-- Không thể khẳng định quyền tái phân phối dữ liệu WazeMod hoặc độ chính xác pháp lý của biển báo.
-
-### An toàn
-
-Thông tin biển báo là dữ liệu hỗ trợ tham khảo; luôn ưu tiên biển báo và quy định ngoài đường. Cấp quyền theo luồng đồng ý của người dùng, không hardcode token/secret. Bản APK debug phục vụ thử nghiệm, không phải bản phát hành thương mại.
+- `OfflineRoadDatabase.kt`: import JSON theo luồng, SQLite transaction rollback, truy vấn theo bbox/geometry, điểm biển báo có hướng.
+- `GeoMath.kt`: đo khoảng cách GPS–đoạn đường, hướng đi.
+- `IndependentEngine.kt`: Android GPS + ngoại tuyến, không phụ thuộc Waze.
+- `DataSourceCoordinator.kt`: nhận diện `com.waze`, ghép trạng thái nguồn, chuyển dự phòng.
+- `WazeModClient.kt`: API Binder consent-gated Mod10 (không chính thức).
+- `MainActivity.kt`, `HudOverlayService.kt`: giao diện chọn nguồn, nhập dữ liệu và HUD nổi điện thoại.
+- `docs/OFFLINE_FORMAT_AND_TEST.md`: định dạng nhập và nghiệm thu.
