@@ -1,0 +1,13 @@
+# Build outputs, local IDE and sensitive signing data
+.gradle/
+build/
+**/build/
+local.properties
+.idea/
+*.iml
+*.apk
+*.aab
+*.jks
+*.keystore
+*.key
+.DS_Store
