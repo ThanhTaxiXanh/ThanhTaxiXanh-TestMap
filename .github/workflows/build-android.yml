@@ -1,14 +1,23 @@
-name: Build TTX WazeMod10 Bridge APK
+name: Build TTX WazeMod10 Bridge APK (sovereignty gate)
 on:
   push:
-    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  sovereignty-gate:
+    name: Mandatory sovereignty gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Vietnamese map presentation policy and block unverified map assets
+        run: python3 scripts/sovereignty_gate.py
+      - name: Verify fail-closed regression tests
+        run: python3 -m unittest discover -s tests -v
   assemble:
+    name: Build APK only after gate PASS
+    needs: sovereignty-gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,8 +40,7 @@ jobs:
       - name: Build prototype debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: TTX-WazeMod10-Bridge-debug-apk
           path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn
+          if-no-files-found: error
